@@ -1,3 +1,3 @@
-module shares-dcf
+module dcf
 
 go 1.20
