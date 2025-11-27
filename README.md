@@ -27,6 +27,7 @@
   - 使用参数直接计算： ./bin/dcfcli -fcf 10 -shares 100 -r 10 -gp 3 -n 5 -g 8
     - 参数含义： fcf 当前自由现金流（亿）， shares 总股本（亿）， r 贴现率（%）， gp 永续增长率（%）， n 一阶段年数， g 未来 N 年年均增长率（%）
 - Web 页面：
+  - 启动 Web 服务： go run ./cmd/server
   - 已启动本地服务：打开 http://localhost:8080/ 在浏览器输入参数并查看分步结果
   - 页面包含表单与详细计算过程，易于可视化分析
 - 生成可执行文件
@@ -86,3 +87,4 @@
   - 运行测试： go test ./... （已通过）
   - 构建 CLI 与服务端： go build -o bin/dcfcli ./cmd/dcfcli && go build -o bin/server ./cmd/server
   - 启动服务： ./bin/server （已启动，预览地址如上）
+- 晨星提供的验证：http://www.zhongguosou.com/zonghe/xianjinliu_guzhi.aspx

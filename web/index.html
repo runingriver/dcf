@@ -20,7 +20,7 @@
         <input type="number" step="0.0001" name="shares" id="shares" min="0" required value="{{ with .Input }}{{ printf "%.4f" .TotalShares }}{{ end }}"/>
       </label>
       <label>
-        贴现率（%）
+        贴现率WACC（%）
         <input type="number" step="0.0001" name="r" id="r" required value="{{ with .Input }}{{ printf "%.4f" .DiscountRatePct }}{{ end }}"/>
       </label>
       <label>
@@ -52,13 +52,19 @@
       <div class="summary">
         <span class="badge">下一年FCF {{ printf "%.4f" .Input.FCFBase }} 亿</span>
         <span class="badge">股本 {{ printf "%.4f" .Input.TotalShares }} 亿股</span>
-        <span class="badge">r {{ printf "%.2f" .Input.DiscountRatePct }}%</span>
+        <span class="badge">r(WACC) {{ printf "%.2f" .Input.DiscountRatePct }}%</span>
         <span class="badge">g {{ printf "%.2f" .Input.AvgGrowthRatePct }}%</span>
         <span class="badge">gp {{ printf "%.2f" .Input.PerpetualGrowthPct }}%</span>
         <span class="badge">N {{ .Input.Years }}</span>
       </div>
+      <div class="formula">
+        <p>r（WACC）：贴现率（加权平均资本成本，按百分比输入）</p>
+        <p>g：一阶段自由现金流年均增长率（按百分比输入）</p>
+        <p>gp：永续增长率（稳定期，按百分比输入）</p>
+      </div>
 
       <h3>第一步：预测N年的自由现金流（单位：亿）</h3>
+      <p class="formula">公式：FCF_t = FCF_{t-1} × (1 + g)，其中 g={{ printf "%.2f" .Input.AvgGrowthRatePct }}%</p>
       <ul class="list">
         {{ range $i, $v := .Result.ProjectedFCF }}
           <li><span>第{{ add $i 1 }}年</span><span>{{ printf "%.4f" $v }}</span></li>
@@ -66,6 +72,7 @@
       </ul>
 
       <h3>第二步：把这N年自由现金流折现成现值（单位：亿）</h3>
+      <p class="formula">公式：PV_t = FCF_t / (1 + r)^t，其中 r={{ printf "%.2f" .Input.DiscountRatePct }}%</p>
       <ul class="list">
         {{ range $i, $v := .Result.DiscountedFCF }}
           <li><span>第{{ add $i 1 }}年现值</span><span>{{ printf "%.4f" $v }}</span></li>
@@ -73,13 +80,18 @@
       </ul>
 
       <h3>第三步：永续年金价值及其现值</h3>
+      <p class="formula">公式：TV = FCF_N × (1 + gp) / (r − gp)</p>
+      <p class="formula">公式：PV_TV = TV / (1 + r)^N</p>
+      <p class="formula">代入：FCF_N={{ printf "%.4f" (index .Result.ProjectedFCF (sub .Input.Years 1)) }}，r={{ printf "%.2f" .Input.DiscountRatePct }}%，gp={{ printf "%.2f" .Input.PerpetualGrowthPct }}%，N={{ .Input.Years }}，(1+r)^N={{ printf "%.6f" (pow (onePlusPct .Input.DiscountRatePct) .Input.Years) }}</p>
       <p>永续年金价值（第N年末）：{{ printf "%.4f" .Result.TerminalValue }} (亿)</p>
       <p>折现到当期的现值：{{ printf "%.4f" .Result.DiscountedTerminal }} (亿)</p>
 
       <h3>第四步：企业价值</h3>
+      <p class="formula">公式：Firm = Σ PV_t + PV_TV</p>
       <p>企业价值：{{ printf "%.4f" .Result.FirmValue }} (亿)</p>
 
       <h3>第五步：每股价值</h3>
+      <p class="formula">公式：PerShare = Firm / TotalShares，其中 TotalShares={{ printf "%.4f" .Input.TotalShares }} 亿股</p>
       <p>每股价值：{{ printf "%.6f" .Result.PerShareValue }}</p>
     </div>
     {{ end }}

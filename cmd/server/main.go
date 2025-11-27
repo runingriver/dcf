@@ -7,6 +7,7 @@ import (
     "path/filepath"
     "strconv"
     "html/template"
+    "math"
 
     "shares-dcf/internal/dcf"
 )
@@ -18,6 +19,11 @@ func main() {
     var err error
     tmpl, err = template.New("index.html").Funcs(template.FuncMap{
         "add": func(a, b int) int { return a + b },
+        "sub": func(a, b int) int { return a - b },
+        // 提供 pow 以便在模板中演示公式中的幂次
+        "pow": func(base float64, exp int) float64 { return math.Pow(base, float64(exp)) },
+        // 计算 1 + p/100，用于 (1+r)^t 的底数
+        "onePlusPct": func(p float64) float64 { return 1.0 + p/100.0 },
     }).ParseFiles(filepath.Join("web", "index.html"))
     if err != nil {
         log.Fatalf("模板加载失败: %v", err)

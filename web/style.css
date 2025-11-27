@@ -22,3 +22,9 @@ button:hover { filter: brightness(1.05); }
 .list li { display: grid; grid-template-columns: 140px 1fr; align-items: center; column-gap: 12px; padding: 8px 10px; border-bottom: 1px dashed var(--border); }
 .list li span:last-child { text-align: left; }
 .list li:last-child { border-bottom: none; }
+
+/* 收紧第一、二步列表宽度，缩短左右间距，提升可读性 */
+.results .list { max-width: 520px; }
+
+/* 公式展示样式 */
+.formula { color: var(--muted); font-size: 13px; margin: 4px 0 8px; }
