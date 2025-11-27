@@ -6,7 +6,7 @@ import (
     "net/http"
     "path/filepath"
     "strconv"
-    "text/template"
+    "html/template"
 
     "shares-dcf/internal/dcf"
 )
@@ -16,7 +16,7 @@ var tmpl *template.Template
 func main() {
     // Parse templates at startup.
     var err error
-    tmpl, err = template.New("index").Funcs(template.FuncMap{
+    tmpl, err = template.New("index.html").Funcs(template.FuncMap{
         "add": func(a, b int) int { return a + b },
     }).ParseFiles(filepath.Join("web", "index.html"))
     if err != nil {
@@ -39,8 +39,12 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusMethodNotAllowed)
         return
     }
+    w.Header().Set("Content-Type", "text/html; charset=utf-8")
     data := map[string]any{"Result": nil, "Error": ""}
-    _ = tmpl.Execute(w, data)
+    if err := tmpl.ExecuteTemplate(w, "index.html", data); err != nil {
+        http.Error(w, fmt.Sprintf("模板渲染失败: %v", err), http.StatusInternalServerError)
+        return
+    }
 }
 
 func handleCompute(w http.ResponseWriter, r *http.Request) {
@@ -51,20 +55,45 @@ func handleCompute(w http.ResponseWriter, r *http.Request) {
 
     in, err := parseInput(r)
     if err != nil {
-        data := map[string]any{"Result": nil, "Error": err.Error()}
-        _ = tmpl.Execute(w, data)
+        w.Header().Set("Content-Type", "text/html; charset=utf-8")
+        // Preserve user input values in the form when parse error occurs.
+        toF := func(name string) float64 {
+            v := r.FormValue(name)
+            num, _ := strconv.ParseFloat(v, 64)
+            return num
+        }
+        toI := func(name string) int {
+            v := r.FormValue(name)
+            num, _ := strconv.Atoi(v)
+            return num
+        }
+        preserved := dcf.Input{
+            FCFBase:            toF("fcf"),
+            TotalShares:        toF("shares"),
+            DiscountRatePct:    toF("r"),
+            PerpetualGrowthPct: toF("gp"),
+            Years:              toI("n"),
+            AvgGrowthRatePct:   toF("g"),
+        }
+        data := map[string]any{"Result": nil, "Error": err.Error(), "Input": preserved}
+        _ = tmpl.ExecuteTemplate(w, "index.html", data)
         return
     }
 
     res, err := dcf.Compute(in)
     if err != nil {
-        data := map[string]any{"Result": nil, "Error": err.Error()}
-        _ = tmpl.Execute(w, data)
+        w.Header().Set("Content-Type", "text/html; charset=utf-8")
+        data := map[string]any{"Result": nil, "Error": err.Error(), "Input": in}
+        _ = tmpl.ExecuteTemplate(w, "index.html", data)
         return
     }
 
+    w.Header().Set("Content-Type", "text/html; charset=utf-8")
     data := map[string]any{"Result": res, "Error": "", "Input": in}
-    _ = tmpl.Execute(w, data)
+    if err := tmpl.ExecuteTemplate(w, "index.html", data); err != nil {
+        http.Error(w, fmt.Sprintf("模板渲染失败: %v", err), http.StatusInternalServerError)
+        return
+    }
 }
 
 func parseInput(r *http.Request) (dcf.Input, error) {

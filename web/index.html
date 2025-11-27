@@ -8,65 +8,67 @@
 </head>
 <body>
   <div class="container">
-    <h1>自由现金流折现（DCF）估值</h1>
-    <form method="post" action="/compute" class="grid">
+    <div class="card">
+      <h1>自由现金流折现（DCF）估值</h1>
+      <form method="post" action="/compute" class="grid" id="dcf-form">
       <label>
         下一年自由现金流（亿）
-        <input type="number" step="0.0001" name="fcf" required />
+        <input type="number" step="0.0001" name="fcf" id="fcf" min="0" required value="{{ with .Input }}{{ printf "%.4f" .FCFBase }}{{ end }}"/>
       </label>
       <label>
         总股本（亿）
-        <input type="number" step="0.0001" name="shares" required />
+        <input type="number" step="0.0001" name="shares" id="shares" min="0" required value="{{ with .Input }}{{ printf "%.4f" .TotalShares }}{{ end }}"/>
       </label>
       <label>
         贴现率（%）
-        <input type="number" step="0.0001" name="r" required />
+        <input type="number" step="0.0001" name="r" id="r" required value="{{ with .Input }}{{ printf "%.4f" .DiscountRatePct }}{{ end }}"/>
       </label>
       <label>
         永续增长率（%）
-        <input type="number" step="0.0001" name="gp" required />
+        <input type="number" step="0.0001" name="gp" id="gp" required value="{{ with .Input }}{{ printf "%.4f" .PerpetualGrowthPct }}{{ end }}"/>
       </label>
       <label>
         一阶段年数 N
-        <input type="number" name="n" min="1" required />
+        <input type="number" name="n" id="n" min="1" required value="{{ with .Input }}{{ .Years }}{{ end }}"/>
       </label>
       <label>
         未来N年自由现金流年均增长率（%）
-        <input type="number" step="0.0001" name="g" required />
+        <input type="number" step="0.0001" name="g" id="g" required value="{{ with .Input }}{{ printf "%.4f" .AvgGrowthRatePct }}{{ end }}"/>
       </label>
-      <div class="actions">
-        <button type="submit">计算</button>
-      </div>
-    </form>
+        <div class="actions">
+          <button type="submit">计算</button>
+        </div>
+      </form>
+      <div class="error" id="form-error"></div>
+    </div>
 
     {{ if .Error }}
       <div class="error">错误：{{ .Error }}</div>
     {{ end }}
 
     {{ if .Result }}
-    <div class="results">
+    <div class="card results">
       <h2>计算结果</h2>
-      <p>
-        输入摘要：
-        下一年FCF={{ printf "%.4f" .Input.FCFBase }}亿，
-        股本={{ printf "%.4f" .Input.TotalShares }}亿股，
-        r={{ printf "%.2f" .Input.DiscountRatePct }}%，
-        g={{ printf "%.2f" .Input.AvgGrowthRatePct }}%，
-        gp={{ printf "%.2f" .Input.PerpetualGrowthPct }}%，
-        N={{ .Input.Years }}
-      </p>
+      <div class="summary">
+        <span class="badge">下一年FCF {{ printf "%.4f" .Input.FCFBase }} 亿</span>
+        <span class="badge">股本 {{ printf "%.4f" .Input.TotalShares }} 亿股</span>
+        <span class="badge">r {{ printf "%.2f" .Input.DiscountRatePct }}%</span>
+        <span class="badge">g {{ printf "%.2f" .Input.AvgGrowthRatePct }}%</span>
+        <span class="badge">gp {{ printf "%.2f" .Input.PerpetualGrowthPct }}%</span>
+        <span class="badge">N {{ .Input.Years }}</span>
+      </div>
 
       <h3>第一步：预测N年的自由现金流（单位：亿）</h3>
-      <ul>
+      <ul class="list">
         {{ range $i, $v := .Result.ProjectedFCF }}
-          <li>第{{ add $i 1 }}年：{{ printf "%.4f" $v }}</li>
+          <li><span>第{{ add $i 1 }}年</span><span>{{ printf "%.4f" $v }}</span></li>
         {{ end }}
       </ul>
 
       <h3>第二步：把这N年自由现金流折现成现值（单位：亿）</h3>
-      <ul>
+      <ul class="list">
         {{ range $i, $v := .Result.DiscountedFCF }}
-          <li>第{{ add $i 1 }}年现值：{{ printf "%.4f" $v }}</li>
+          <li><span>第{{ add $i 1 }}年现值</span><span>{{ printf "%.4f" $v }}</span></li>
         {{ end }}
       </ul>
 
@@ -84,7 +86,41 @@
   </div>
 
   <script>
-    // Go's text/template doesn't provide add by default; handled server-side by FuncMap if needed.
+    const form = document.getElementById('dcf-form');
+    const errBox = document.getElementById('form-error');
+    const num = id => parseFloat(document.getElementById(id).value);
+    function validate() {
+      errBox.textContent = '';
+      errBox.classList.remove('show');
+      const fcf = num('fcf');
+      const shares = num('shares');
+      const r = num('r');
+      const gp = num('gp');
+      const n = parseInt(document.getElementById('n').value, 10);
+      const g = num('g');
+      const setErr = msg => { errBox.textContent = msg; errBox.classList.add('show'); };
+      if (isNaN(fcf) || fcf <= 0) { setErr('请填写有效的下一年自由现金流（>0）'); return false; }
+      if (isNaN(shares) || shares <= 0) { setErr('请填写有效的总股本（>0）'); return false; }
+      if (isNaN(r)) { setErr('请填写有效的贴现率（%）'); return false; }
+      if (isNaN(gp)) { setErr('请填写有效的永续增长率（%）'); return false; }
+      if (isNaN(g)) { setErr('请填写有效的年均增长率（%）'); return false; }
+      if (isNaN(n) || n < 1) { setErr('一阶段年数必须为>=1的整数'); return false; }
+      if (r <= gp) { setErr('贴现率必须大于永续增长率'); return false; }
+
+      // 额外防误填：百分比必须以“百分数”输入（例如 10 表示 10%），而不是小数（例如 0.1）。
+      // 如果检测到 0 < 值 <= 1 的情况，极可能是误把 10% 写成 0.1。
+      const isPctLikelyDecimal = v => v > 0 && v <= 1;
+      if (isPctLikelyDecimal(r) || isPctLikelyDecimal(g) || isPctLikelyDecimal(gp)) {
+        setErr('请按百分比输入（例如 10 表示 10%），不要输入 0.1 或 0.08');
+        return false;
+      }
+      return true;
+    }
+    ['fcf','shares','r','gp','n','g'].forEach(id => {
+      const el = document.getElementById(id);
+      el && el.addEventListener('input', () => { validate(); });
+    });
+    form.addEventListener('submit', (e) => { if (!validate()) { e.preventDefault(); } });
   </script>
 </body>
 </html>
