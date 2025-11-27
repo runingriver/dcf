@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DCF 估值计算器</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>自由现金流折现（DCF）估值</h1>
+    <form method="post" action="/compute" class="grid">
+      <label>
+        下一年自由现金流（亿）
+        <input type="number" step="0.0001" name="fcf" required />
+      </label>
+      <label>
+        总股本（亿）
+        <input type="number" step="0.0001" name="shares" required />
+      </label>
+      <label>
+        贴现率（%）
+        <input type="number" step="0.0001" name="r" required />
+      </label>
+      <label>
+        永续增长率（%）
+        <input type="number" step="0.0001" name="gp" required />
+      </label>
+      <label>
+        一阶段年数 N
+        <input type="number" name="n" min="1" required />
+      </label>
+      <label>
+        未来N年自由现金流年均增长率（%）
+        <input type="number" step="0.0001" name="g" required />
+      </label>
+      <div class="actions">
+        <button type="submit">计算</button>
+      </div>
+    </form>
+
+    {{ if .Error }}
+      <div class="error">错误：{{ .Error }}</div>
+    {{ end }}
+
+    {{ if .Result }}
+    <div class="results">
+      <h2>计算结果</h2>
+      <p>
+        输入摘要：
+        下一年FCF={{ printf "%.4f" .Input.FCFBase }}亿，
+        股本={{ printf "%.4f" .Input.TotalShares }}亿股，
+        r={{ printf "%.2f" .Input.DiscountRatePct }}%，
+        g={{ printf "%.2f" .Input.AvgGrowthRatePct }}%，
+        gp={{ printf "%.2f" .Input.PerpetualGrowthPct }}%，
+        N={{ .Input.Years }}
+      </p>
+
+      <h3>第一步：预测N年的自由现金流（单位：亿）</h3>
+      <ul>
+        {{ range $i, $v := .Result.ProjectedFCF }}
+          <li>第{{ add $i 1 }}年：{{ printf "%.4f" $v }}</li>
+        {{ end }}
+      </ul>
+
+      <h3>第二步：把这N年自由现金流折现成现值（单位：亿）</h3>
+      <ul>
+        {{ range $i, $v := .Result.DiscountedFCF }}
+          <li>第{{ add $i 1 }}年现值：{{ printf "%.4f" $v }}</li>
+        {{ end }}
+      </ul>
+
+      <h3>第三步：永续年金价值及其现值</h3>
+      <p>永续年金价值（第N年末）：{{ printf "%.4f" .Result.TerminalValue }} (亿)</p>
+      <p>折现到当期的现值：{{ printf "%.4f" .Result.DiscountedTerminal }} (亿)</p>
+
+      <h3>第四步：企业价值</h3>
+      <p>企业价值：{{ printf "%.4f" .Result.FirmValue }} (亿)</p>
+
+      <h3>第五步：每股价值</h3>
+      <p>每股价值：{{ printf "%.6f" .Result.PerShareValue }}</p>
+    </div>
+    {{ end }}
+  </div>
+
+  <script>
+    // Go's text/template doesn't provide add by default; handled server-side by FuncMap if needed.
+  </script>
+</body>
+</html>
