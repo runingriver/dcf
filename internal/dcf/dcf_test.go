@@ -40,3 +40,26 @@ func TestInvalidRates(t *testing.T) {
 }
 
 func abs(x float64) float64 { if x < 0 { return -x }; return x }
+
+func TestCaseProvided(t *testing.T) {
+    in := Input{
+        FCFBase:            988.0000,
+        TotalShares:        12.5200,
+        DiscountRatePct:    10.00,
+        PerpetualGrowthPct: 3.00,
+        Years:              10,
+        AvgGrowthRatePct:   8.00,
+    }
+    res, err := Compute(in)
+    if err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
+    wantFirm := 19485.7206
+    wantPerShare := 1556.367457
+    if diff := abs(res.FirmValue - wantFirm); diff > 1e-3 {
+        t.Fatalf("firm value diff=%g, got=%.6f want=%.6f", diff, res.FirmValue, wantFirm)
+    }
+    if diff := abs(res.PerShareValue - wantPerShare); diff > 1e-6 {
+        t.Fatalf("per-share diff=%g, got=%.6f want=%.6f", diff, res.PerShareValue, wantPerShare)
+    }
+}
